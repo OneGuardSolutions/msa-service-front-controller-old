@@ -32,12 +32,12 @@ public class TokenAuthenticationService {
     }
 
     public void addAuthentication(HttpServletResponse response, String username) {
-        String JWT = Jwts.builder()
+        String jwt = Jwts.builder()
             .setSubject(username)
             .setExpiration(new Date(System.currentTimeMillis() + expirationTime * 1000))
             .signWith(SignatureAlgorithm.HS512, secret)
             .compact();
-        response.addHeader(headerName, tokenType + " " + JWT);
+        response.addHeader(headerName, tokenType + " " + jwt);
     }
 
     public Authentication getAuthentication(HttpServletRequest request) {

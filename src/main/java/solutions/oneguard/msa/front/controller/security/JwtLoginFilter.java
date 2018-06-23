@@ -14,11 +14,11 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Collections;
 
-public class JWTLoginFilter extends AbstractAuthenticationProcessingFilter {
+public class JwtLoginFilter extends AbstractAuthenticationProcessingFilter {
     private final ObjectMapper objectMapper;
     private final TokenAuthenticationService authenticationService;
 
-    public JWTLoginFilter(
+    public JwtLoginFilter(
         String url,
         AuthenticationManager authManager,
         TokenAuthenticationService authenticationService,

@@ -14,11 +14,11 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 
 @Component
-public class JWTAuthenticationFilter extends GenericFilterBean {
+public class JwtAuthenticationFilter extends GenericFilterBean {
     private final TokenAuthenticationService authenticationService;
 
     @Autowired
-    public JWTAuthenticationFilter(TokenAuthenticationService authenticationService) {
+    public JwtAuthenticationFilter(TokenAuthenticationService authenticationService) {
         this.authenticationService = authenticationService;
     }
 

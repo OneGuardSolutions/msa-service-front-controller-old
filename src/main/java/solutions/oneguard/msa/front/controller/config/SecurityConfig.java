@@ -15,8 +15,8 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import solutions.oneguard.msa.front.controller.security.JWTAuthenticationFilter;
-import solutions.oneguard.msa.front.controller.security.JWTLoginFilter;
+import solutions.oneguard.msa.front.controller.security.JwtAuthenticationFilter;
+import solutions.oneguard.msa.front.controller.security.JwtLoginFilter;
 import solutions.oneguard.msa.front.controller.security.TokenAuthenticationService;
 
 @Configuration
@@ -48,12 +48,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
             .and()
             // We filter the /auth/token requests
             .addFilterBefore(
-                new JWTLoginFilter("/auth/token", authenticationManager(), authenticationService, null),
+                new JwtLoginFilter("/auth/token", authenticationManager(), authenticationService, null),
                 UsernamePasswordAuthenticationFilter.class
             )
             // And filter other requests to check the presence of JWT in header
             .addFilterBefore(
-                new JWTAuthenticationFilter(authenticationService),
+                new JwtAuthenticationFilter(authenticationService),
                 UsernamePasswordAuthenticationFilter.class
             );
     }
