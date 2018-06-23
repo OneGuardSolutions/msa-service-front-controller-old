@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Demo Client</title>
+
+    <style>
+        .hidden {
+            display: none;
+        }
+    </style>
+
+    <!-- development version, includes helpful console warnings -->
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue-resource@1.5.1"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="http://momentjs.com/downloads/moment-with-locales.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.15.0/prism.min.js" integrity="sha256-jc6y1s/Y+F+78EgCT/lI2lyU7ys+PFYrRSJ6q8/R8+o=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.15.0/components/prism-json.min.js" integrity="sha256-oA5rMHeAX+cg/CdcQ0VHmIqqw/IW4o2KAUEjo4QvShs=" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.15.0/themes/prism-coy.min.css" integrity="sha256-pBLOnOQq8E9POmDOv09xSKrPQYI6feWEhyTgl1Q8Bwk=" crossorigin="anonymous" />
+</head>
+
+<body>
+<div>
+    <div id="app">
+        <div v-if="!isAuthenticated">
+            <login-component @authenticated="authenticated"></login-component>
+        </div>
+        <div v-else>
+            Logged in as: <strong>{{ username }}</strong>
+        </div>
+        <hr>
+        <div v-if="isAuthenticated">
+            <form @submit.prevent="sendMessage">
+                <label>Message type:</label><br>
+                <input v-model="messageType" type="text" style="width: 600px"><br>
+
+                <label>Body:</label><br>
+                <textarea v-model="messageBody" rows="5" style="width: 600px"></textarea><br>
+
+                <button>Send</button>
+            </form>
+
+            <br>
+
+            <table border="1" style="width: 100%">
+                <thead>
+                    <tr>
+                        <th style="width: 18em">Reference</th>
+                        <th>Type</th>
+                        <th>Payload</th>
+                        <th style="width: 9em">Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="message in messages">
+                        <td>{{ message.reference }}</td>
+                        <td>{{ message.type }}</td>
+                        <td><code class="language-json">{{ message.payload | json }}</code></td>
+                        <td>{{ message.occurredAt | formatDate }}</td>
+                    </tr>
+                    <tr v-if="messages.length < 1">
+                        <td colspan="4">No messages yet</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        function uuid() {
+            var uuid = "", i, random;
+            for (i = 0; i < 32; i++) {
+                random = Math.random() * 16 | 0;
+
+                if (i == 8 || i == 12 || i == 16 || i == 20) {
+                    uuid += "-"
+                }
+                uuid += (i == 12 ? 4 : (i == 16 ? (random & 3 | 8) : random)).toString(16);
+            }
+            return uuid;
+        }
+
+        /* Components */
+
+        Vue.component('login-component', {
+            data: function () {
+                return {
+                    username: null,
+                    password: null,
+                    error: null
+                };
+            },
+            template: `
+                <form @submit.prevent="login">
+                    <label>Username:</label>
+                    <input v-model="username" type="text">
+                    <label>Password:</label>
+                    <input v-model="password" type="password">
+                    <button>Log in</button>
+                    <strong style="color: red">{{ error }}</strong>
+                </form>
+            `,
+            methods: {
+                login: function () {
+                    let vm = this;
+                    let password = this.password;
+                    this.password = null;
+                    vm.error = null;
+
+                    this.$http.post('/auth/token', {username: this.username, password: password})
+                        .then(
+                            function (response) {
+                                if (response.headers.has('Authorization')) {
+                                    let header = response.headers.get('Authorization');
+                                    let token = header.substr(header.indexOf(' ') + 1);
+                                    let payload = JSON.parse(atob(token.split('.')[1]));
+                                    let expiresAt = new Date(payload.exp * 1000);
+
+                                    Vue.http.interceptors.push(function(request) {
+                                        request.headers.set('Authorization', response.headers.get('Authorization'));
+                                    });
+                                    vm.$emit('authenticated', {
+                                        username: payload.sub,
+                                        token: token
+                                    });
+                                }
+                            },
+                            function (response) {
+                                console.log(response);
+                                vm.error = 'Authentication failed';
+                            }
+                        )
+                        .catch(function (e) {
+                            vm.error = 'Authentication error';
+                            console.error(e);
+                        });
+                }
+            }
+        });
+
+        /* Filters */
+
+        Vue.filter('json', value => (value) ? JSON.stringify(value) : null);
+        Vue.filter('formatDate', value => (value) ? moment(value).format('YYYY-MM-DD HH:mm:ss') : null);
+
+        /* App */
+
+        var app = new Vue({
+            el: '#app',
+            data: {
+                username: null,
+                sock: null,
+                messageType: 'echo.request',
+                messageBody: '{\n  "message": "Hullo"\n}',
+                messages: []
+            },
+            methods: {
+                authenticated: function (payload) {
+                    let vm = this;
+                    this.username = payload.username;
+                    this.sock = new SockJS('/ws?access_token=' + payload.token);
+                    this.sock.onopen = function () {
+                        console.log("Connection established")
+                    };
+                    this.sock.onmessage = function (e) {
+                        console.log("Message received", e);
+                        let data = JSON.parse(e.data);
+                        vm.messages.unshift({
+                            type: data.type,
+                            payload: data.payload,
+                            occurredAt: new Date(data.occurredAt),
+                            reference: data.reference
+                        });
+                    };
+                    this.sock.onclose = function () {
+                        console.log("Connection closed")
+                    }
+                },
+                sendMessage: function () {
+                    let message = {
+                        type: this.messageType,
+                        payload: JSON.parse(this.messageBody),
+                        occurredAt: new Date(),
+                        reference: uuid()
+                    };
+                    this.messages.unshift(message);
+                    this.sock.send(JSON.stringify(message));
+
+                    setTimeout(Prism.highlightAll, 100);
+                }
+            },
+            computed: {
+                isAuthenticated: function () {
+                    return this.username !== null;
+                }
+            }
+        });
+    </script>
+</div>
+</body>
+</html>
