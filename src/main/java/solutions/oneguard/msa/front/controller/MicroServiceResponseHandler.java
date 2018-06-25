@@ -27,7 +27,7 @@ public class MicroServiceResponseHandler extends AbstractMessageHandler<Object> 
 
     @Autowired
     public MicroServiceResponseHandler(WebSocketSessionRegistry registry, ObjectMapper objectMapper) {
-        super("echo.response", Object.class);
+        super(Object.class);
 
         this.registry = registry;
         this.objectMapper = objectMapper;
@@ -57,7 +57,7 @@ public class MicroServiceResponseHandler extends AbstractMessageHandler<Object> 
                 WebSocketMessage.builder()
                     .type(originalMessage.getType())
                     .payload(payload)
-                    .occurredAt(originalMessage.getOccuredAt())
+                    .occurredAt(originalMessage.getOccurredAt())
                     .reference(reference)
                     .build()
             )));

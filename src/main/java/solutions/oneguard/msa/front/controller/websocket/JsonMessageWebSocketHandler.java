@@ -63,7 +63,7 @@ public class JsonMessageWebSocketHandler extends TextWebSocketHandler {
             .type(wsm.getType())
             .principal(session.getPrincipal().getName())
             .payload(wsm.getPayload())
-            .occuredAt(wsm.getOccurredAt())
+            .occurredAt(wsm.getOccurredAt())
             .reference(reference)
             .respondToIssuer(true)
             .build();
