@@ -1,3 +1,12 @@
+/*
+ * This file is part of the OneGuard Micro-Service Architecture Front Controller service.
+ *
+ * (c) OneGuard <contact@oneguard.email>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 package solutions.oneguard.msa.front.controller.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -15,6 +24,9 @@ import solutions.oneguard.msa.core.model.Instance;
 import solutions.oneguard.msa.core.model.Message;
 
 import java.io.IOException;
+import java.util.Collections;
+
+import static solutions.oneguard.msa.front.controller.MicroServiceResponseHandler.WEB_SOCKET_SESSION_CONTEXT_KEY;
 
 @Component
 public class JsonMessageWebSocketHandler extends TextWebSocketHandler {
@@ -57,16 +69,7 @@ public class JsonMessageWebSocketHandler extends TextWebSocketHandler {
 
         String type = wsm.getType();
         String targetService = type.substring(0, type.indexOf('.'));
-        String reference = wsm.getReference() == null ? session.getId() : session.getId() + '.' + wsm.getReference();
-        Message serviceMessage = Message.builder()
-            .issuer(instance)
-            .type(wsm.getType())
-            .principal(session.getPrincipal().getName())
-            .payload(wsm.getPayload())
-            .occurredAt(wsm.getOccurredAt())
-            .reference(reference)
-            .respondToIssuer(true)
-            .build();
+        Message<Object> serviceMessage = convert(wsm, session);
 
         producer.sendToService(targetService, serviceMessage);
     }
@@ -75,5 +78,18 @@ public class JsonMessageWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         log.info("Connection closed: {} <{}>", session.getId(), status);
         registry.unregister(session);
+    }
+
+    private Message<Object> convert(WebSocketMessage wsm, WebSocketSession session) {
+        return Message.builder()
+            .id(wsm.getId())
+            .type(wsm.getType())
+            .principal(session.getPrincipal().getName())
+            .issuer(instance)
+            .payload(wsm.getPayload())
+            .context(Collections.singletonMap(WEB_SOCKET_SESSION_CONTEXT_KEY, session.getId()))
+            .occurredAt(wsm.getOccurredAt())
+            .respondToInstance(true)
+            .build();
     }
 }

@@ -3,15 +3,10 @@
 <head>
     <title>Demo Client</title>
 
-    <style>
-        .hidden {
-            display: none;
-        }
-    </style>
-
     <!-- development version, includes helpful console warnings -->
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue-resource@1.5.1"></script>
+    <script src="https://unpkg.com/vue-ls"></script>
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="http://momentjs.com/downloads/moment-with-locales.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.15.0/prism.min.js" integrity="sha256-jc6y1s/Y+F+78EgCT/lI2lyU7ys+PFYrRSJ6q8/R8+o=" crossorigin="anonymous"></script>
@@ -27,6 +22,9 @@
         </div>
         <div v-else>
             Logged in as: <strong>{{ username }}</strong>
+            <div style="float: right">
+                <a href="javascript:" @click.prevent="logout">Log out</a>
+            </div>
         </div>
         <hr>
         <div v-if="isAuthenticated">
@@ -45,18 +43,18 @@
             <table border="1" style="width: 100%">
                 <thead>
                     <tr>
-                        <th style="width: 18em">Reference</th>
+                        <th style="width: 18em">ID</th>
                         <th>Type</th>
                         <th>Payload</th>
                         <th style="width: 9em">Time</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="message in messages">
-                        <td>{{ message.reference }}</td>
-                        <td>{{ message.type }}</td>
-                        <td><code class="language-json">{{ message.payload | json }}</code></td>
-                        <td>{{ message.occurredAt | formatDate }}</td>
+                    <tr v-for="msg in messages">
+                        <td>{{ msg.id }}</td>
+                        <td>{{ msg.type }}</td>
+                        <td>{{ msg.payload | json }}</td>
+                        <td>{{ msg.occurredAt | formatDate }}</td>
                     </tr>
                     <tr v-if="messages.length < 1">
                         <td colspan="4">No messages yet</td>
@@ -68,19 +66,20 @@
 
     <script>
         function uuid() {
-            var uuid = "", i, random;
+            let uuid = "", i, random;
             for (i = 0; i < 32; i++) {
                 random = Math.random() * 16 | 0;
-
-                if (i == 8 || i == 12 || i == 16 || i == 20) {
+                if (i === 8 || i === 12 || i === 16 || i === 20) {
                     uuid += "-"
                 }
-                uuid += (i == 12 ? 4 : (i == 16 ? (random & 3 | 8) : random)).toString(16);
+                uuid += (i === 12 ? 4 : (i === 16 ? (random & 3 | 8) : random)).toString(16);
             }
             return uuid;
         }
 
         /* Components */
+
+        Vue.use(VueStorage);
 
         Vue.component('login-component', {
             data: function () {
@@ -100,6 +99,15 @@
                     <strong style="color: red">{{ error }}</strong>
                 </form>
             `,
+            created: function() {
+                let token = this.$ls.get("auth.token");
+                if (token !== null) {
+                    this.$emit('authenticated', {
+                        username: token.username,
+                        token: token.access_token
+                    });
+                }
+            },
             methods: {
                 login: function () {
                     let vm = this;
@@ -118,6 +126,10 @@
 
                                     Vue.http.interceptors.push(function(request) {
                                         request.headers.set('Authorization', response.headers.get('Authorization'));
+                                    });
+                                    this.$ls.set('auth.token', {
+                                        username: payload.sub,
+                                        access_token: token
                                     });
                                     vm.$emit('authenticated', {
                                         username: payload.sub,
@@ -145,13 +157,13 @@
 
         /* App */
 
-        var app = new Vue({
+        const app = new Vue({
             el: '#app',
             data: {
                 username: null,
                 sock: null,
                 messageType: 'echo.request',
-                messageBody: '{\n  "message": "Hullo"\n}',
+                messageBody: '{\n  "content": "Hullo"\n}',
                 messages: []
             },
             methods: {
@@ -166,10 +178,10 @@
                         console.log("Message received", e);
                         let data = JSON.parse(e.data);
                         vm.messages.unshift({
+                            id: data.id,
                             type: data.type,
                             payload: data.payload,
-                            occurredAt: new Date(data.occurredAt),
-                            reference: data.reference
+                            occurredAt: new Date(data.occurredAt)
                         });
                     };
                     this.sock.onclose = function () {
@@ -177,16 +189,20 @@
                     }
                 },
                 sendMessage: function () {
-                    let message = {
+                    const message = {
+                        id: uuid(),
                         type: this.messageType,
                         payload: JSON.parse(this.messageBody),
-                        occurredAt: new Date(),
-                        reference: uuid()
+                        occurredAt: new Date()
                     };
                     this.messages.unshift(message);
                     this.sock.send(JSON.stringify(message));
 
                     setTimeout(Prism.highlightAll, 100);
+                },
+                logout: function() {
+                    this.$ls.remove("auth.token");
+                    this.username = null;
                 }
             },
             computed: {

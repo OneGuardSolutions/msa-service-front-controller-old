@@ -18,7 +18,7 @@ First install [RabbitMQ Server](http://www.rabbitmq.com/download.html).
 For purpose of this example we assume the server is running on local host and default port.
 
 If your environment differs, override the configuration in `src/main/resources/application-default.properties`.
-See `src/main/resources/application.properties` for reference. 
+See `src/main/resources/application.properties` for id. 
 
 Clone this repository:
 
@@ -41,7 +41,7 @@ The message MUST by json encoded.
   "type": "echo.request",
   "payload": {},
   "occurredAt": 1514761200000, 
-  "reference": "UUID"
+  "id": "UUID"
 }
 ```
 
@@ -50,7 +50,7 @@ The message MUST by json encoded.
                            structure depends on the handler
 - **`occurredAt`** `date` *optional* - time of message occurrence in milliseconds since the epoch 
                                       (1970-01-01 00:00:00.000); defaults to current time when received
-- **`reference`** `uuid` *optional* - used by client to match any potential response to the request
+- **`id`** `uuid` *optional* - used by client to match any potential response to the request
 
 ## Used libraries
 

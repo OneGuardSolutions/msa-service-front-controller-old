@@ -1,3 +1,12 @@
+/*
+ * This file is part of the OneGuard Micro-Service Architecture Front Controller service.
+ *
+ * (c) OneGuard <contact@oneguard.email>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 package solutions.oneguard.msa.front.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,12 +23,11 @@ import solutions.oneguard.msa.front.controller.websocket.WebSocketMessage;
 import solutions.oneguard.msa.front.controller.websocket.WebSocketSessionRegistry;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 @Component
 public class MicroServiceResponseHandler extends AbstractMessageHandler<Object> {
+    public static final String WEB_SOCKET_SESSION_CONTEXT_KEY = "webSocketSession";
+
     private static final Logger log = LoggerFactory.getLogger(MicroServiceResponseHandler.class);
 
     private final WebSocketSessionRegistry registry;
@@ -34,31 +42,27 @@ public class MicroServiceResponseHandler extends AbstractMessageHandler<Object> 
     }
 
     @Override
-    public void handleMessage(Object payload, Message originalMessage) {
+    public void handleMessage(Message<Object> originalMessage) {
         log.info("Received service message: <{}>", originalMessage);
-        if (originalMessage.getReference() == null) {
+        if (
+            originalMessage.getContext() == null ||
+            !originalMessage.getContext().containsKey(WEB_SOCKET_SESSION_CONTEXT_KEY)
+        ) {
             return;
         }
-        List<String> referenceParts = new ArrayList<>(
-            Arrays.asList(originalMessage.getReference().toString().split("\\."))
-        );
-        if (referenceParts.size() == 0) {
-            return;
-        }
-        String sessionId = referenceParts.remove(0);
-        if (!registry.has(sessionId)) {
-            return;
-        }
+        String sessionId = originalMessage.getContext().get(WEB_SOCKET_SESSION_CONTEXT_KEY).toString();
         WebSocketSession session = registry.get(sessionId);
+        if (session == null) {
+            return;
+        }
 
-        String reference = referenceParts.isEmpty() ? null : String.join(".", referenceParts);
         try {
             session.sendMessage(new TextMessage(objectMapper.writeValueAsString(
                 WebSocketMessage.builder()
+                    .id(originalMessage.getResponseTo())
                     .type(originalMessage.getType())
-                    .payload(payload)
+                    .payload(originalMessage.getPayload())
                     .occurredAt(originalMessage.getOccurredAt())
-                    .reference(reference)
                     .build()
             )));
         } catch (IOException e) {

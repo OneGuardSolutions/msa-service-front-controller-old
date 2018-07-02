@@ -1,3 +1,12 @@
+/*
+ * This file is part of the OneGuard Micro-Service Architecture Front Controller service.
+ *
+ * (c) OneGuard <contact@oneguard.email>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 package solutions.oneguard.msa.front.controller.websocket;
 
 import com.fasterxml.jackson.core.JsonParseException;
@@ -58,7 +67,7 @@ class MessageParser {
                 WebSocketMessage.builder()
                     .type("error.malformed_message")
                     .payload(new MalformedMessagePayload(
-                        Arrays.asList("type", "payload", "occurredAt", "reference"),
+                        Arrays.asList("id", "type", "payload", "occurredAt"),
                         originalPayload)
                     )
                     .build()
